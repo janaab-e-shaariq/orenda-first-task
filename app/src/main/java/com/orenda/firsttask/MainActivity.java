@@ -122,7 +122,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             protected Void doInBackground (Void... voids) {
                                 try {
                                     File futureStudioIconFile =
-                                            new File(Environment.getExternalStorageDirectory() + File.separator + "Downloaded Video.mp4");
+                                            new File(getExternalFilesDir(null) + File.separator + "Downloaded Video.mp4");
         
                                     InputStream inputStream = null;
                                     OutputStream outputStream = null;
