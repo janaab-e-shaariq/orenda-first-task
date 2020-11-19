@@ -38,6 +38,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     
     private NotificationManagerCompat notificationManager;
     private NotificationCompat.Builder builder;
+    private int PROGRESS_MAX = 100;
     
     @Override
     protected void onCreate (Bundle savedInstanceState) {
@@ -50,6 +51,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         isStoragePermissionGranted();
     }
     
+    /**
+     * This method checks if the storage permission is granted or not and then asks user to allow storage permission.
+     */
     public void isStoragePermissionGranted() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -83,134 +87,206 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick (View view) {
         if (view.getId() == buttonDownload.getId()) {
             buttonDownload.setEnabled(false);
-    
-            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            ClipData clip = ClipData.newPlainText("link", "https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_10mb.mp4");
-            clipboard.setPrimaryClip(clip);
-    
-            Toast.makeText(this, "Download Started!\nLink copied to clipboard.", Toast.LENGTH_SHORT).show();
-    
-            notificationManager = NotificationManagerCompat.from(this);
-            builder = new NotificationCompat.Builder(this, "ORENDA");
-            builder.setContentTitle("Video Download")
-                    .setContentText("Download in progress")
-                    .setSmallIcon(R.drawable.ic_baseline_cloud_download_24)
-                    .setPriority(NotificationCompat.PRIORITY_LOW);
-
-            int PROGRESS_MAX = 100;
-            int PROGRESS_CURRENT = 0;
-            builder.setProgress(PROGRESS_MAX, PROGRESS_CURRENT, false);
-            notificationManager.notify(101, builder.build());
             
-            
-            Retrofit retrofit = new Retrofit.Builder()
-                                        .baseUrl("https://sample-videos.com")
-                                        .build();
+            downloadVideoFromLink("https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_10mb.mp4");
+        }
+    }
     
-            VideoDownloadApi downloadApi = retrofit.create(VideoDownloadApi.class);
+    /**
+     * This method takes a video link as a String of the form 'https://xxx.xx/xxxx.mp4' and then starts download.
+     * @param link is used to pass video link to the method
+     */
+    private void downloadVideoFromLink (String link) {
+        
+        copyLinkToClipboard(link);
     
-            Call<ResponseBody> downloadCall = downloadApi.downloadAsync("video123/mp4/720/big_buck_bunny_720p_10mb.mp4");
+        Toast.makeText(this, "Download Started!\nLink copied to clipboard.", Toast.LENGTH_SHORT).show();
     
-            downloadCall.enqueue(new Callback<ResponseBody>() {
-                @Override
-                public void onResponse (Call<ResponseBody> call, Response<ResponseBody> response) {
-                    if (response.isSuccessful()) {
-                        
-                        new AsyncTask<Void, String, Void>() {
+        
+        String[] linkProtocolBreakdown = link.split("[/][/]");
+        String tempLink = null;
+        if (protocolGiven(linkProtocolBreakdown[0]) != null) {
+            tempLink = link;
+        }
+        else {
+            tempLink = "https://" + link;
+        }
+        
+        String[] linkBreakdown = tempLink.split("[/]");
+        
+        buildNotification(linkBreakdown[linkBreakdown.length-1]);
+        
+        String linkPath = "";
     
-                            @Override
-                            protected Void doInBackground (Void... voids) {
+        for (int i = 2; i < linkBreakdown.length; i++) {
+            linkPath += linkBreakdown[i] + "/";
+        }
+    
+        Retrofit retrofit = new Retrofit.Builder()
+                                    .baseUrl(linkBreakdown[0] + "//" + linkBreakdown[1])
+                                    .build();
+    
+        VideoDownloadApi downloadApi = retrofit.create(VideoDownloadApi.class);
+    
+        Call<ResponseBody> downloadCall = downloadApi.downloadAsync(linkPath);
+    
+        downloadCall.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse (Call<ResponseBody> call, Response<ResponseBody> response) {
+                if (response.isSuccessful()) {
+                
+                    new AsyncTask<Void, String, Void>() {
+                    
+                        @Override
+                        protected Void doInBackground (Void... voids) {
+                            try {
+                                File futureStudioIconFile =
+                                        new File(getFilesDir() + File.separator + linkBreakdown[linkBreakdown.length-1]);
+                            
+                                InputStream inputStream = null;
+                                OutputStream outputStream = null;
+                            
                                 try {
-                                    File futureStudioIconFile =
-                                            new File(getExternalFilesDir(null) + File.separator + "Downloaded Video.mp4");
-        
-                                    InputStream inputStream = null;
-                                    OutputStream outputStream = null;
-        
-                                    try {
-                                        byte[] fileReader = new byte[4096];
-            
-                                        long fileSize = response.body().contentLength();
-                                        long fileSizeDownloaded = 0;
-            
-                                        inputStream = response.body().byteStream();
-                                        outputStream = new FileOutputStream(futureStudioIconFile);
-            
-                                        while (true) {
-                                            int read = inputStream.read(fileReader);
-                
-                                            if (read == -1) {
-                                                break;
-                                            }
-                
-                                            outputStream.write(fileReader, 0, read);
-                
-                                            fileSizeDownloaded += read;
-                                            
-                                            publishProgress(""+fileSize, ""+fileSizeDownloaded);
-                
-                                            Log.d(TAG, "file download: " + fileSizeDownloaded + " of " + fileSize);
+                                    byte[] fileReader = new byte[4096];
+                                
+                                    long fileSize = response.body().contentLength();
+                                    long fileSizeDownloaded = 0;
+                                
+                                    inputStream = response.body().byteStream();
+                                    outputStream = new FileOutputStream(futureStudioIconFile);
+                                
+                                    while (true) {
+                                        int read = inputStream.read(fileReader);
+                                    
+                                        if (read == -1) {
+                                            break;
                                         }
-            
-                                        outputStream.flush();
-            
+                                    
+                                        outputStream.write(fileReader, 0, read);
+                                    
+                                        fileSizeDownloaded += read;
+                                    
+                                        publishProgress(""+fileSize, ""+fileSizeDownloaded);
+                                    
+                                        Log.d(TAG, "file download: " + fileSizeDownloaded + " of " + fileSize);
+                                    }
+                                
+                                    outputStream.flush();
+
 //                                        Toast.makeText(MainActivity.this, "Done!", Toast.LENGTH_SHORT).show();
 
 //                            return true;
-                                    } catch (IOException e) {
-                                        Log.e(TAG, e.getMessage());
-//                            return false;
-                                    } finally {
-                                        if (inputStream != null) {
-                                            inputStream.close();
-                                        }
-            
-                                        if (outputStream != null) {
-                                            outputStream.close();
-                                        }
-                                    }
                                 } catch (IOException e) {
                                     Log.e(TAG, e.getMessage());
-//                        return false;
+//                            return false;
+                                } finally {
+                                    if (inputStream != null) {
+                                        inputStream.close();
+                                    }
+                                
+                                    if (outputStream != null) {
+                                        outputStream.close();
+                                    }
                                 }
-                                return null;
+                            } catch (IOException e) {
+                                Log.e(TAG, e.getMessage());
+//                        return false;
                             }
-    
-                            @Override
-                            protected void onProgressUpdate (String... values) {
-                                int fileSize = Integer.parseInt(values[0]);
-                                int fileSizeDownloaded = Integer.parseInt(values[1]);
-                                
-                                float prog = fileSizeDownloaded / (float) fileSize;
-                                int percent = (int) (prog * 100);
-                                
-                                builder.setProgress(PROGRESS_MAX, percent, false);
-                                notificationManager.notify(101, builder.build());
-                            }
-    
-                            @Override
-                            protected void onPostExecute (Void aVoid) {
-                                Toast.makeText(MainActivity.this, "Video Downloaded.\nSaved as \"Downloaded Video.mp4\"", Toast.LENGTH_LONG).show();
-                                
-                                buttonDownload.setEnabled(true);
-                                
-                                builder.setContentText("Download complete.")
-                                        .setProgress(0,0,false);
-                                notificationManager.notify(101, builder.build());
-                            }
-                        }.execute();
-                    } else {
-                        Toast.makeText(MainActivity.this, "Connection failed.", Toast.LENGTH_SHORT).show();
-                        Log.e(TAG, "Server connection failed: " + response.message());
-                    }
+                            return null;
+                        }
+                    
+                        @Override
+                        protected void onProgressUpdate (String... values) {
+                            int fileSize = Integer.parseInt(values[0]);
+                            int fileSizeDownloaded = Integer.parseInt(values[1]);
+                        
+                            float prog = fileSizeDownloaded / (float) fileSize;
+                            int percent = (int) (prog * 100);
+                        
+                            updateNotificationProgress(percent);
+                        }
+                    
+                        @Override
+                        protected void onPostExecute (Void aVoid) {
+                            Toast.makeText(MainActivity.this, "Video Downloaded.\nSaved as \"Downloaded Video.mp4\"", Toast.LENGTH_LONG).show();
+                        
+                            buttonDownload.setEnabled(true);
+                        
+                            notificationFinalStage(linkBreakdown[linkBreakdown.length-1]);
+                        }
+                    }.execute();
                 }
+                else {
+                    Toast.makeText(MainActivity.this, "Connection failed.", Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Server connection failed: " + response.message());
+                }
+            }
         
-                @Override
-                public void onFailure (Call<ResponseBody> call, Throwable t) {
-                    Toast.makeText(MainActivity.this, "Something went wrong.", Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, t.getMessage());
-                }
-            });
+            @Override
+            public void onFailure (Call<ResponseBody> call, Throwable t) {
+                Toast.makeText(MainActivity.this, "Something went wrong.", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, t.getMessage());
+            }
+        });
+    }
+    
+    /**
+     * This method checks if the given String equals 'https:', 'http:' or not.
+     * @param protocol is used to pass the string to method.
+     * @return returns passed String if condition is met, otherwise returns null
+     */
+    private String protocolGiven (String protocol) {
+        if (protocol.equalsIgnoreCase("https:")
+                || protocol.equalsIgnoreCase("http:")) {
+            return protocol;
         }
+        else
+            return null;
+    }
+    
+    /**
+     * This method copies the passed String link to clipboard.
+     * @param link is used to pass String link to the method
+     */
+    private void copyLinkToClipboard (String link) {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("link", link);
+        clipboard.setPrimaryClip(clip);
+    }
+    
+    /**
+     * This method makes a notification and adds the videoName passed through argument to the notification.
+     * @param videoName is used to pass the String video name to the method
+     */
+    private void buildNotification (String videoName) {
+        notificationManager = NotificationManagerCompat.from(this);
+        builder = new NotificationCompat.Builder(this, "ORENDA");
+        builder.setContentTitle(videoName)
+                .setContentText("Download in progress")
+                .setSmallIcon(R.drawable.ic_baseline_cloud_download_24)
+                .setPriority(NotificationCompat.PRIORITY_LOW);
+    
+        int PROGRESS_CURRENT = 0;
+        builder.setProgress(PROGRESS_MAX, PROGRESS_CURRENT, false);
+        notificationManager.notify(101, builder.build());
+    }
+    
+    /**
+     * This method updates the download progress in the notification.
+     * @param progress  is used to pass the download progress
+     */
+    private void updateNotificationProgress(int progress) {
+        builder.setProgress(PROGRESS_MAX, progress, false);
+        notificationManager.notify(101, builder.build());
+    }
+    
+    /**
+     * This method updates the notification when download is complete, and prompts user that the download is finished.
+     * @param videoName is used to pass the download progress
+     */
+    private void notificationFinalStage(String videoName) {
+        builder.setContentText("Video " + videoName + " downloaded.")
+                .setProgress(0,0,false);
+        notificationManager.notify(101, builder.build());
     }
 }
