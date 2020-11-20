@@ -65,13 +65,13 @@ public class DownloadForegroundService extends Service {
         String fileURL = intent.getStringExtra("fileURL");
         createNotificationChannel();
         
-        Intent notificationIntent = new Intent(this, MainActivity.class);
-        pendingIntent = PendingIntent.getActivity(this,
+        Intent notificationIntent = new Intent(getApplicationContext(), MainActivity.class);
+        pendingIntent = PendingIntent.getActivity(getApplicationContext(),
                 0, notificationIntent, 0);
         
         fileName = fileURL.substring(fileURL.lastIndexOf('/') + 1);
         
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID2)
+        Notification notification = new NotificationCompat.Builder(getApplicationContext(), CHANNEL_ID2)
                                             .setContentTitle("Download Started!")
                                             .setSmallIcon(R.drawable.ic_baseline_cloud_download_24)
                                             .setContentIntent(pendingIntent)
@@ -109,7 +109,7 @@ public class DownloadForegroundService extends Service {
      */
     private void buildNotification (String videoName) {
         Log.wtf(TAG, "buildNotification");
-        builder = new NotificationCompat.Builder(this, CHANNEL_ID);
+        builder = new NotificationCompat.Builder(getApplicationContext(), CHANNEL_ID);
         builder.setContentTitle(videoName)
                 .setSmallIcon(R.drawable.ic_baseline_cloud_download_24)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
