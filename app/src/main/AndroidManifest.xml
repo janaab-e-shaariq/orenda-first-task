@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -13,7 +15,13 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".MainActivity">
+
+        <service
+            android:name="com.orenda.firsttask.DownloadForegroundService"
+            android:enabled="true"
+            android:exported="true"/>
+
+        <activity android:name="com.orenda.firsttask.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
